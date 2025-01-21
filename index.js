@@ -35,17 +35,37 @@ app.get("/", async (req, res) => {
 });
 
 app.post("/add", async (req, res) => {
-const input=req.body["country"];
-console.log(input)
-const result =await db.query("SELECT country_code FROM countries WHERE country_name = $1", [input])
-console.log(result.rows)
-if(result.rows.length !== 0){
-  const data= result.rows[0];
-  const countryCode=data.country_code;
-  await db.query("INSERT INTO visited_countries (country_code) VALUES ($1)", [countryCode,]);
-  res.redirect("/");
-}
+  const input = req.body["country"];
+  console.log(input)
+  //trying to access and find the country code to match country name entered by the user
+  try {
 
+    const result = await db.query("SELECT country_code FROM countries WHERE LOWER (country_name) LIKE '%' || $1 || '%';", 
+      [input.toLowerCase()]);
+    console.log(result.rows)
+    const data = result.rows[0];
+    const countryCode = data.country_code;
+    console.log(countryCode)
+   
+    //trying to insert new country code in the database
+
+    try {
+      await db.query("INSERT INTO visited_countries (country_code) VALUES ($1)", [countryCode,]);
+      res.redirect("/");
+
+    } catch (err) {
+      console.log(err);
+      const countries=await visitedCountries()
+      res.render("index.ejs", { countries: countries, total: countries.length, error: "Country has already been added" })
+    }
+
+
+  }
+  catch (err) {
+    console.log(err)
+    const countries = await visitedCountries();
+    res.render("index.ejs", { countries: countries, total: countries.length, error: "Country is not found in the database" })
+  }
 })
 
 app.listen(port, () => {
